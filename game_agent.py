@@ -28,19 +28,18 @@ def custom_score(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
-    """simple difference of moves"""
-    if game.is_winner(player):
-        return float("inf")
-
-    # Do we even have moves to play?
+    """ Improved score weighted on available moves of legal moves """
     if game.is_loser(player):
         return float("-inf")
 
-    # We have moves to play. How many more than our opponent?
-    player_moves_left = len(game.get_legal_moves(player))
-    opponent_moves_left = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(player_moves_left - opponent_moves_left)
+    if game.is_winner(player):
+        return float("inf")
+    my_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
+    # Sum the available moves for each legal move.
+    own_mobility = float(sum([len(game.get_legal_moves( player)) for move in my_moves ]))
+    opp_mobility = float(sum([len(game.get_legal_moves(game.get_opponent(player))) for move in opp_moves ]))
+    return (len(my_moves) * own_mobility) - (len(opp_moves) * opp_mobility)
 
 
 def custom_score_2(game, player):
@@ -61,37 +60,16 @@ def custom_score_2(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
-    """Manhattan distance to the center"""
-    # Have we won the game?
-    if game.is_winner(player):
-        return float("inf")
-
-    # Do we even have moves to play?
     if game.is_loser(player):
         return float("-inf")
 
-    # We have moves to play. How many more than our opponent?
-    player_moves_left = len(game.get_legal_moves(player))
-    opponent_moves_left = len(game.get_legal_moves(game.get_opponent(player)))
+    if game.is_winner(player):
+        return float("inf")
 
-    if player_moves_left != opponent_moves_left:
-        return float(player_moves_left - opponent_moves_left)
+    my_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
 
-    else:
-        # If we have the same number of moves available, look for a positional advantage.
-        # Use the Manhattan distance to the center of the board to assess positional advantage.
-        center_y_pos, center_x_pos = int(game.height / 2), int(game.width / 2)
-        player_y_pos, player_x_pos = game.get_player_location(player)
-        opponent_y_pos, opponent_x_pos = game.get_player_location(game.get_opponent(player))
-        player_distance = abs(player_y_pos - center_y_pos) + abs(player_x_pos - center_x_pos)
-        opponent_distance = abs(opponent_y_pos - center_y_pos) + abs(opponent_x_pos - center_x_pos)
-        # All we need now is to take the difference between the two distances to evaluate positional advantage.
-        # Scale this number between 0 and +-1 (a positional advantage can't be as good as being ahead by one move)
-        # Best case, our opponent's distance is 6 from the center (for a 7x7 grid) and we're at pos 0,0 -> return 0.6
-        # Worst case, our opponent's distance is 0 from the center (for a 7x7 grid) and we're in a corner -> return -0.6
-        # If both players are at the same distance from the center -> return 0.
-        return float(opponent_distance - player_distance) / 10.
+    return float(7*(len(my_moves)) - (len(opp_moves)))
 
 
 def custom_score_3(game, player):
@@ -112,7 +90,6 @@ def custom_score_3(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
     if game.is_loser(player):
         return float("-inf")
 
@@ -200,13 +177,14 @@ class MinimaxPlayer(IsolationPlayer):
         # Initialize the best move so that this function returns something
         # in case the search fails due to timeout
         best_move = (-1, -1)
-
         try:
             # The try/except block will automatically catch the exception
             # raised when the timer is about to expire.
-            return self.minimax(game, self.search_depth)
+            best_move = self.minimax(game, self.search_depth)
 
         except SearchTimeout:
+            if best_move == (-1, -1):
+                pass
             pass  # Handle any actions required after timeout as needed
 
         # Return the best move from the last completed search iteration
@@ -248,8 +226,10 @@ class MinimaxPlayer(IsolationPlayer):
             raise SearchTimeout()
 
         moves = game.get_legal_moves()
-        if depth == 0 or not moves:
+        if not moves:
             return -1, -1
+        if depth == 0:
+            return moves[0]
 
         best_move = moves[0]
         best_score = float('-inf')
@@ -264,9 +244,14 @@ class MinimaxPlayer(IsolationPlayer):
     def min_play(self, game, depth):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
+
+        score = self.score(game, self)
+        if depth == 1:
+            return score
         moves = game.get_legal_moves()
-        if depth == 1 or not moves:
-            return self.score(game, self)
+        if not moves:
+            return score
+
         best_score = float('inf')
         for move in moves:
             clone = game.forecast_move(move)
@@ -278,9 +263,14 @@ class MinimaxPlayer(IsolationPlayer):
     def max_play(self, game, depth):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
+
+        score = self.score(game, self)
+        if depth == 1:
+            return score
         moves = game.get_legal_moves()
-        if depth == 1 or not moves:
-            return self.score(game, self)
+        if not moves:
+            return score
+
         best_score = float('-inf')
         for move in moves:
             clone = game.forecast_move(move)
@@ -322,25 +312,25 @@ class AlphaBetaPlayer(IsolationPlayer):
             (-1, -1) if there are no available legal moves.
         """
         self.time_left = time_left
-
-        # TODO: finish this function!
-
         # Initialize the best move so that this function returns something
         # in case the search fails due to timeout
-        best_move = -1, -1
-
+        moves = game.get_legal_moves()
+        if not moves:
+            return -1, -1
+        best_move = moves[0]
+        depth = 1
         try:
             # The try/except block will automatically catch the exception
             # raised when the timer is about to expire.
             # return self.alphabeta(game, self.search_depth)
-            depth = 1
-            while self.time_left() > 0:
-                move = self.alphabeta(game, depth)
-                best_move = move
-                depth = depth + 1
-
-
+            while self.time_left() > self.TIMER_THRESHOLD:
+                best_move = self.alphabeta(game, depth)
+                depth += 1
         except SearchTimeout:
+            if best_move == (-1, -1) :
+                pass
+            if best_move is None:
+                pass
             pass  # Handle any actions required after timeout as needed
 
         # Return the best move from the last completed search iteration
@@ -381,17 +371,18 @@ class AlphaBetaPlayer(IsolationPlayer):
                 each helper function or else your agent will timeout during
                 testing.
         """
-        if self.time_left() < self.TIMER_THRESHOLD:
-            raise SearchTimeout()
-
-        # TODO: finish this function!
-
         moves = game.get_legal_moves()
-        if depth == 0 or not moves:
+        if self.time_left() < self.TIMER_THRESHOLD:
+            return moves[0]
+        if not moves:
             return -1, -1
+        if depth == 0:
+            return moves[0]
 
-        best_move = None
+        best_move = moves[0]
         for move in moves:
+            if self.time_left() < self.TIMER_THRESHOLD:
+                return best_move
             clone = game.forecast_move(move)
             score = self.min_play(clone, depth, alpha, beta)
             if score > alpha:
@@ -400,13 +391,19 @@ class AlphaBetaPlayer(IsolationPlayer):
         return best_move
 
     def min_play(self, game, depth, alpha, beta):
+        score = self.score(game, self)
         if self.time_left() < self.TIMER_THRESHOLD:
-            raise SearchTimeout()
+            return score
+        if depth == 1:
+            return score
         moves = game.get_legal_moves()
-        if depth == 1 or not moves:
-            return self.score(game, self)
+        if not moves:
+            return score
+
         score = float('inf')
         for move in moves:
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
             clone = game.forecast_move(move)
             score = min(score, self.max_play(clone, depth - 1, alpha, beta))
             if score <= alpha:
@@ -415,13 +412,19 @@ class AlphaBetaPlayer(IsolationPlayer):
         return score
 
     def max_play(self, game, depth, alpha, beta):
+        score = self.score(game, self)
         if self.time_left() < self.TIMER_THRESHOLD:
-            raise SearchTimeout()
+            return score
+        if depth == 1:
+            return score
         moves = game.get_legal_moves()
-        if depth == 1 or not moves:
-            return self.score(game, self)
+        if not moves:
+            return score
+
         score = float('-inf')
         for move in moves:
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
             clone = game.forecast_move(move)
             score = max(score, self.min_play(clone, depth - 1, alpha, beta))
             if score >= beta:
