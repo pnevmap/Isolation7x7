@@ -1,1 +1,1 @@
-This project is an exersise for the adversarial game playing project for Udacity Artificial Intelligence Nanodegree program 
+Create agents for the isolation 7x7 game with minimax and alpha-beta search algorighms 
